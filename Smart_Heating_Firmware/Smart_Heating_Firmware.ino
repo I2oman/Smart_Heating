@@ -12,6 +12,8 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 
+#include "WiFiCredentials.h"
+
 // #include "maintenance.h"
 
 #include "Heating.h"
@@ -23,9 +25,6 @@
 #define LED 16
 #define BTN 4
 #define SERVO 17
-
-const char *ssid = "WiFi-SSID";
-const char *password = "Password";
 
 const char *time_zone = "GMT0BST,M3.5.0/1,M10.5.0";
 const char *ntpServer1 = "pool.ntp.org";
