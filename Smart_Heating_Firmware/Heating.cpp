@@ -87,6 +87,7 @@ void Heating::buttonMonitor() {
 
 void Heating::setMode(bool mode) {
   winterMode = mode;
+  if (!winterMode) userSelect = 0;
 }
 
 bool Heating::getMode() {

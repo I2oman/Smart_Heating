@@ -10,8 +10,8 @@ const char* styles_css = R"rawliteral(
 
 html,
 body {
-  min-height: 100vh;
-  max-width: 100vw;
+  min-height: 100svh;
+  max-width: 100svw;
   height: fit-content;
   background-color: rgb(150, 150, 150);
   -ms-overflow-style: none;

@@ -68,8 +68,8 @@ const char* controlpanel_html = R"rawliteral(
               <div class="toggle__circle"></div>
             </label>
             <div class="toggle-text">
-              <span>Summer mode</span>
               <span>Winter mode</span>
+              <span>Summer mode</span>
             </div>
           </div>
         </div>

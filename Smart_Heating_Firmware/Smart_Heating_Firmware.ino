@@ -149,11 +149,46 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 
     if (strcmp(action, "switchHeatingMode") == 0) {
       if (requestJson["heatingMode"].as<bool>()) {
-        if (heating.status()) {
-          heating.userToggleHeating();
+        heating.setMode(1);
+        if (heating.togglingError()) return;
+
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo)) {
+          uint16_t currentTimeValue = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+
+          if (heatingTimers.getDayTimerCount() == 0) {
+            if (heating.status()) heating.toggleHeating();
+            return;
+          }
+
+          static bool dayHaveTimer = 0;
+
+          for (DayTimer dayTimer : heatingTimers.getDayTimersList()) {
+            DayTimer::DayPair days = dayTimer.getDays();
+            if ((days.startDay <= (timeinfo.tm_wday + 6) % 7) && ((timeinfo.tm_wday + 6) % 7 <= days.endDay)) {
+              dayHaveTimer = 1;
+              for (HeatingTimer heatingTimer : dayTimer.getTimersList()) {
+                if ((heatingTimer.getValue()[0] <= currentTimeValue) && (currentTimeValue <= heatingTimer.getValue()[1])) {
+                  if (heating.togglingError()) return;
+                  heating.userToggleHeating();
+                }
+              }
+            }
+          }
+
+          if (!dayHaveTimer) {
+            if (heating.togglingError()) return;
+            if (heating.status()) heating.toggleHeating();
+          }
+        } else {
+          if (heating.togglingError()) return;
+          if (heating.status()) heating.toggleHeating();
         }
+
+      } else {
+        if (!heating.togglingError() && heating.status()) heating.userToggleHeating();
+        heating.setMode(0);
       }
-      heating.setMode(requestJson["heatingMode"].as<bool>());
       Serial.println(heating.getMode());
 
       saveWeeklyTimers();
@@ -161,8 +196,6 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
       if (heating.getMode()) {
         heating.userToggleHeating();
       }
-
-      saveWeeklyTimers();
     } else if (strcmp(action, "addDayTimer") == 0) {
       DayTimer dayTimer;
       JsonObject jsonDayTimer = requestJson["dayTimer"].as<JsonObject>();
@@ -328,7 +361,6 @@ void displayHeatingTimers() {
 void saveWeeklyTimers() {
   DynamicJsonDocument doc(4096);
   doc["winterMode"] = heating.getMode();
-  doc["userSelect"] = heating.getUserSelect();
 
   JsonArray timersArray = doc.createNestedArray("dayTimers");
 
@@ -377,40 +409,52 @@ void loadWeeklyTimers() {
   DeserializationError error = deserializeJson(doc, file);
   if (error) {
     Serial.println("Failed to read file, using default configuration");
+    heating.begin(0, 0);
     return;
   }
   file.close();
 
-  JsonArray timersArray = doc["dayTimers"].as<JsonArray>();
-  for (JsonObject jsonDayTimer : timersArray) {
-    uint8_t startDay = jsonDayTimer["days"]["startDay"];
-    uint8_t endDay = jsonDayTimer["days"]["endDay"];
-    DayTimer::DayPair dayPair = { startDay, endDay };
+  bool uSelect = 0;
 
-    DayTimer dayTimer(dayPair);
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    uint16_t currentTimeValue = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+    JsonArray timersArray = doc["dayTimers"].as<JsonArray>();
+    for (JsonObject jsonDayTimer : timersArray) {
+      uint8_t startDay = jsonDayTimer["days"]["startDay"];
+      uint8_t endDay = jsonDayTimer["days"]["endDay"];
+      DayTimer::DayPair dayPair = { startDay, endDay };
 
-    JsonArray timersArray = jsonDayTimer["timers"].as<JsonArray>();
-    for (JsonObject jsonTimer : timersArray) {
-      uint8_t startTimeHours = jsonTimer["startTime"]["hours"];
-      uint8_t startTimeMinutes = jsonTimer["startTime"]["minutes"];
-      HeatingTimer::Time startTime = { startTimeHours, startTimeMinutes };
+      DayTimer dayTimer(dayPair);
 
-      uint8_t endTimeHours = jsonTimer["endTime"]["hours"];
-      uint8_t endTimeMinutes = jsonTimer["endTime"]["minutes"];
-      HeatingTimer::Time endTime = { endTimeHours, endTimeMinutes };
+      JsonArray timersArray = jsonDayTimer["timers"].as<JsonArray>();
+      for (JsonObject jsonTimer : timersArray) {
+        uint8_t startTimeHours = jsonTimer["startTime"]["hours"];
+        uint8_t startTimeMinutes = jsonTimer["startTime"]["minutes"];
+        HeatingTimer::Time startTime = { startTimeHours, startTimeMinutes };
 
-      HeatingTimer::TimePair timePair = { startTime, endTime };
+        uint8_t endTimeHours = jsonTimer["endTime"]["hours"];
+        uint8_t endTimeMinutes = jsonTimer["endTime"]["minutes"];
+        HeatingTimer::Time endTime = { endTimeHours, endTimeMinutes };
 
-      HeatingTimer heatingTimer(timePair);
+        HeatingTimer::TimePair timePair = { startTime, endTime };
 
-      dayTimer.addTimer(heatingTimer);
+        HeatingTimer heatingTimer(timePair);
+
+        dayTimer.addTimer(heatingTimer);
+
+        if ((dayPair.startDay <= (timeinfo.tm_wday + 6) % 7) && ((timeinfo.tm_wday + 6) % 7 <= dayPair.endDay)) {
+          if ((heatingTimer.getValue()[0] <= currentTimeValue) && (currentTimeValue <= heatingTimer.getValue()[1])) {
+            uSelect = 1;
+          }
+        }
+      }
+
+      heatingTimers.addDayTimer(dayTimer);
     }
-
-    heatingTimers.addDayTimer(dayTimer);
   }
 
   bool wMode = doc["winterMode"];
-  bool uSelect = doc["userSelect"];
 
   Serial.print(wMode);
   Serial.print(" ");
@@ -421,11 +465,11 @@ void loadWeeklyTimers() {
 
 void loop() {
   ws.cleanupClients();
+  systemStateWebUpdate();
   systemMonitoring();
-  updateTime();
 }
 
-void updateTime() {
+void systemMonitoring() {
   static unsigned long timerMillis = millis();
   static unsigned int msDelay = 0;
   if (millis() - timerMillis >= msDelay) {
@@ -458,39 +502,36 @@ void updateTime() {
         if (heating.togglingError()) return;
 
         if (heatingTimers.getDayTimerCount() == 0) {
-          if (heating.status()) {
-            heating.toggleHeating();
-          }
+          if (heating.status()) heating.toggleHeating();
           return;
         }
+
+        static bool dayHaveTimer = 0;
 
         for (DayTimer dayTimer : heatingTimers.getDayTimersList()) {
           DayTimer::DayPair days = dayTimer.getDays();
           if ((days.startDay <= (timeinfo.tm_wday + 6) % 7) && ((timeinfo.tm_wday + 6) % 7 <= days.endDay)) {
+            dayHaveTimer = 1;
             for (HeatingTimer heatingTimer : dayTimer.getTimersList()) {
               HeatingTimer::TimePair timePair = heatingTimer.getTimer();
 
               uint16_t currentTimeValue = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+              Serial.print(heatingTimer.getValue()[0]);
+              Serial.print(" ");
+              Serial.print(heatingTimer.getValue()[1]);
+              Serial.print(" ");
+              Serial.println(currentTimeValue);
               if ((heatingTimer.getValue()[0] <= currentTimeValue) && (currentTimeValue <= heatingTimer.getValue()[1])) {
-                static bool timerSwitch = 0;
                 Serial.print(heating.status());
                 Serial.print(" ");
                 Serial.println(heating.getUserSelect());
                 if (currentTimeValue == heatingTimer.getValue()[0] && timeinfo.tm_sec <= 10) {
-                  if (!heating.status() && !timerSwitch) {
-                    heating.userToggleHeating();
-                    timerSwitch = 1;
-                  }
+                  if (!heating.status()) heating.userToggleHeating();
                 } else if (currentTimeValue == heatingTimer.getValue()[1] && timeinfo.tm_sec <= 10) {
-                  if (heating.status() && !timerSwitch) {
-                    heating.userToggleHeating();
-                    timerSwitch = 1;
-                  }
+                  if (heating.status()) heating.userToggleHeating();
                 } else {
-                  if (timerSwitch) {
-                    timerSwitch = 0;
-                  }
                   if (heating.status() != heating.getUserSelect()) {
+                    if (heating.togglingError()) return;
                     heating.toggleHeating();
                   }
                 }
@@ -498,18 +539,24 @@ void updateTime() {
             }
           }
         }
-      } else {
-        if (heating.status()) {
-          heating.toggleHeating();
+
+        if (!dayHaveTimer) {
+          if (heating.togglingError()) return;
+          if (heating.status()) heating.toggleHeating();
         }
+      } else {
+        if (heating.togglingError()) return;
+        if (heating.status()) heating.toggleHeating();
       }
     } else {
       Serial.println("Failed to obtain time");
+      if (heating.togglingError()) return;
+      if (heating.status()) heating.toggleHeating();
     }
   }
 }
 
-void systemMonitoring() {
+void systemStateWebUpdate() {
   heating.heatingMonitor();
   if (heating.statusChanded()) {
     DynamicJsonDocument sensorData(1024);
