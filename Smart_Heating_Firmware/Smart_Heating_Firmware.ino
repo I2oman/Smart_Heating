@@ -483,7 +483,7 @@ void systemMonitoring() {
           msDelay = 5000;
         }
       }
-      Serial.printf("%02d/%02d/%02d %02d:%02d:%02d %02d\n", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, (timeinfo.tm_wday + 6) % 7);
+      Serial.printf("%02d/%02d/%02d, %02d:%02d:%02d, day - %d, sys - %d, uSelect - %d\n", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, (timeinfo.tm_wday + 6) % 7, heating.status(), heating.getUserSelect());
 
       DynamicJsonDocument jsonData(1024);
       jsonData["action"] = "time_update";
@@ -517,24 +517,23 @@ void systemMonitoring() {
 
               uint16_t currentTimeValue = timeinfo.tm_hour * 60 + timeinfo.tm_min;
               Serial.print(heatingTimer.getValue()[0]);
-              Serial.print(" ");
+              Serial.print(" (");
+              Serial.print(currentTimeValue);
+              Serial.print(") ");
               Serial.print(heatingTimer.getValue()[1]);
+              Serial.print(", ");
+              Serial.print(heating.status());
               Serial.print(" ");
-              Serial.println(currentTimeValue);
-              if ((heatingTimer.getValue()[0] <= currentTimeValue) && (currentTimeValue <= heatingTimer.getValue()[1])) {
-                Serial.print(heating.status());
-                Serial.print(" ");
-                Serial.println(heating.getUserSelect());
+              Serial.println(heating.getUserSelect());
+              if ((heatingTimer.getValue()[0] == currentTimeValue) || (currentTimeValue == heatingTimer.getValue()[1])) {
                 if (currentTimeValue == heatingTimer.getValue()[0] && timeinfo.tm_sec <= 10) {
                   if (!heating.status()) heating.userToggleHeating();
                 } else if (currentTimeValue == heatingTimer.getValue()[1] && timeinfo.tm_sec <= 10) {
                   if (heating.status()) heating.userToggleHeating();
-                } else {
-                  if (heating.status() != heating.getUserSelect()) {
-                    if (heating.togglingError()) return;
-                    heating.toggleHeating();
-                  }
                 }
+              }
+              if (heating.status() != heating.getUserSelect()) {
+                heating.toggleHeating();
               }
             }
           }

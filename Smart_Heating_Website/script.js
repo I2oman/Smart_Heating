@@ -592,8 +592,8 @@ class DayTimer {
   }
 }
 
-// var gateway = `ws://${window.location.hostname}/ws`;
-var gateway = `ws://192.168.0.225/ws`;
+var gateway = `ws://${window.location.hostname}/ws`;
+// var gateway = `ws://192.168.0.225/ws`;
 var websocket;
 
 window.addEventListener("load", onLoad);
