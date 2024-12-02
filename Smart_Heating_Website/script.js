@@ -13,7 +13,11 @@ class HeatingTimer {
     this.timeRange = document.createElement("div");
     this.timeRange.classList.add("time-range");
 
+    this.timePeriod = document.createElement("div");
+    this.timePeriod.classList.add("timePeriod");
+
     this.startTimeContainer = document.createElement("div");
+    this.startTimeContainer.classList.add("timeContainer");
     this.startTimeLabel = document.createElement("label");
     this.startTimeLabel.textContent = "Start Time";
     this.startTimeInput = document.createElement("input");
@@ -24,6 +28,7 @@ class HeatingTimer {
     this.startTimeContainer.appendChild(this.startTimeInput);
 
     this.endTimeContainer = document.createElement("div");
+    this.endTimeContainer.classList.add("timeContainer");
     this.endTimeLabel = document.createElement("label");
     this.endTimeLabel.textContent = "End Time";
     this.endTimeInput = document.createElement("input");
@@ -33,6 +38,9 @@ class HeatingTimer {
     this.endTimeContainer.appendChild(this.endTimeLabel);
     this.endTimeContainer.appendChild(this.endTimeInput);
 
+    this.timePeriod.appendChild(this.startTimeContainer);
+    this.timePeriod.appendChild(this.endTimeContainer);
+
     this.removeButton = document.createElement("button");
     this.removeButton.textContent = "Remove Time Period";
     this.removeButton.addEventListener("click", () => {
@@ -40,8 +48,7 @@ class HeatingTimer {
       this.deleted = true;
     });
 
-    this.timeRange.appendChild(this.startTimeContainer);
-    this.timeRange.appendChild(this.endTimeContainer);
+    this.timeRange.appendChild(this.timePeriod);
     this.timeRange.appendChild(this.removeButton);
   }
 }
@@ -66,6 +73,9 @@ class DayTimer {
     this.timerItemHeader = document.createElement("div");
     this.timerItemHeader.classList.add("timer-item-header");
 
+    this.timePeriod = document.createElement("div");
+    this.timePeriod.classList.add("timePeriod");
+
     this.startDayContainer = document.createElement("div");
     this.startDaylabel = document.createElement("label");
     this.startDaylabel.textContent = "Start Day";
@@ -82,6 +92,9 @@ class DayTimer {
     this.endDayContainer.appendChild(this.endDaylabel);
     this.endDayContainer.appendChild(this.endDaySelect);
 
+    this.timePeriod.appendChild(this.startDayContainer);
+    this.timePeriod.appendChild(this.endDayContainer);
+
     this.timeRangesContainer = document.createElement("div");
     this.timeRangesContainer.classList.add("time-ranges");
 
@@ -92,8 +105,7 @@ class DayTimer {
       this.refreshPage();
     });
 
-    this.timerItemHeader.appendChild(this.startDayContainer);
-    this.timerItemHeader.appendChild(this.endDayContainer);
+    this.timerItemHeader.appendChild(this.timePeriod);
     this.timerItemHeader.appendChild(this.addTimerButton);
 
     this.element.appendChild(this.timerItemHeader);
@@ -194,14 +206,15 @@ class DayTimer {
         return;
       }
 
-      if (timersArray.indexOf(this) > 0) {
-        let previousTimerEndDay =
-          timersArray[timersArray.indexOf(this) - 1].endDay;
-        if (this.startDaySelect.value <= previousTimerEndDay) {
-          invalidInput = true;
-          alert("Timer intercepts with previous!");
-          return;
-        }
+      if (
+        !this.isValidDaysPeriod(
+          this.startDaySelect.value,
+          this.endDaySelect.value
+        )
+      ) {
+        invalidInput = true;
+        alert("Timer intercepts with previous!");
+        return;
       }
 
       modifyDaysArray["startDay"] = this.startDaySelect.value;
@@ -322,18 +335,27 @@ class DayTimer {
       });
     }
     this.doneConfiguring();
+    // contentLoading();
 
     console.log(modifyDayTimerJson);
-    websocket.send(JSON.stringify(modifyDayTimerJson));
+    // TODO: turn on message sent
+    // websocket.send(JSON.stringify(modifyDayTimerJson));
   }
 
   editTimer() {
     this.turnOn(this.addTimerButton);
+
     this.startDaySelect.style.pointerEvents = "";
+    this.startDaySelect.style.color = "";
     this.endDaySelect.style.pointerEvents = "";
+    this.endDaySelect.style.color = "";
+
     this.timeRangesArray.forEach((timeRange) => {
       timeRange.startTimeInput.readOnly = false;
+      timeRange.startTimeInput.style.color = "";
       timeRange.endTimeInput.readOnly = false;
+      timeRange.endTimeInput.style.color = "";
+
       this.turnOn(timeRange.removeButton);
     });
     this.turnOn(this.updateButton);
@@ -349,8 +371,10 @@ class DayTimer {
       dayTimerId: this.id,
     };
     console.log(deleteDayTimer);
-    websocket.send(JSON.stringify(deleteDayTimer));
+    // TODO: turn on message sent
+    // websocket.send(JSON.stringify(deleteDayTimer));
     this.doneConfiguring();
+    // contentLoading();
     this.deleteItself();
   }
 
@@ -454,9 +478,11 @@ class DayTimer {
     addDayTimer["dayTimer"] = dayTimerJson;
 
     this.doneConfiguring();
+    // contentLoading();
 
     console.log(addDayTimer);
-    websocket.send(JSON.stringify(addDayTimer));
+    // TODO: turn on message sent
+    // websocket.send(JSON.stringify(addDayTimer));
   }
 
   cancelTimer() {
@@ -477,11 +503,18 @@ class DayTimer {
 
   doneConfiguring() {
     this.turnOff(this.addTimerButton);
+
     this.startDaySelect.style.pointerEvents = "none";
+    this.startDaySelect.style.color = "rgb(169, 169, 169)";
     this.endDaySelect.style.pointerEvents = "none";
+    this.endDaySelect.style.color = "rgb(169, 169, 169)";
+
     this.timeRangesArray.forEach((timeRange) => {
       timeRange.startTimeInput.readOnly = true;
+      timeRange.startTimeInput.style.color = "rgb(169, 169, 169)";
       timeRange.endTimeInput.readOnly = true;
+      timeRange.endTimeInput.style.color = "rgb(169, 169, 169)";
+
       this.turnOff(timeRange.removeButton);
     });
     this.turnOff(this.updateButton);
@@ -490,17 +523,7 @@ class DayTimer {
     this.turnOff(this.setButton);
     this.turnOff(this.cancelButton);
 
-    const mainContentContainer = document.getElementById(
-      "mainContentContainer"
-    );
-    const mainContentLoader = document.getElementById("mainContentLoader");
-
-    mainContentContainer.className = "";
-    mainContentContainer.classList.add("container");
-    mainContentContainer.classList.add("disabled");
-
-    mainContentLoader.className = "";
-    mainContentLoader.classList.add("loaderHolder");
+    // FIXME: moved to contentLoading()
   }
 
   turnOn(button) {
@@ -592,11 +615,11 @@ class DayTimer {
   }
 }
 
-var gateway = `ws://${window.location.hostname}/ws`;
-// var gateway = `ws://192.168.0.225/ws`;
+// var gateway = `ws://${window.location.hostname}/ws`;
+var gateway = `ws://192.168.0.225/ws`;
 var websocket;
 
-window.addEventListener("load", onLoad);
+// window.addEventListener("load", onLoad);
 
 function onLoad(event) {
   initWebSocket();
@@ -614,7 +637,9 @@ function onOpen(event) {
   console.log("Connection opened");
   if (
     window.location.pathname === "/timers" ||
-    window.location.pathname === "/timers.html"
+    window.location.pathname === "/timers.html" ||
+    window.location.pathname === "/Smart_Heating_Website/timers" ||
+    window.location.pathname === "/Smart_Heating_Website/timers.html"
   ) {
     const message = {
       action: "getDayTimers",
@@ -639,6 +664,8 @@ function onMessage(event) {
   const mainContentContainer = document.getElementById("mainContentContainer");
   const mainContentLoader = document.getElementById("mainContentLoader");
 
+  const slideMenu = document.getElementById("slideMenu");
+
   mainContentContainer.className = "";
   mainContentContainer.classList.add("container");
 
@@ -651,6 +678,8 @@ function onMessage(event) {
       console.log("Handling init_update");
       body.className = "";
       body.classList.add(data["heatingStatus"]);
+      slideMenu.className = "";
+      slideMenu.classList.add(data["heatingStatus"]);
       try {
         const modeCheckBox = document.getElementById("check");
         modeCheckBox.checked = data["heatingMode"];
@@ -667,6 +696,8 @@ function onMessage(event) {
       actionPendingCover.classList.add("disable");
       body.className = "";
       body.classList.add(data["heatingStatus"]);
+      slideMenu.className = "";
+      slideMenu.classList.add(data["heatingStatus"]);
       break;
 
     case "time_update":
@@ -753,6 +784,41 @@ document.addEventListener("DOMContentLoaded", function () {
   //------------------------------------------------------------
 
   try {
+    const homeLink = document.getElementById("homeLink");
+    const slideMenuHolder = document.getElementById("slideMenuHolder");
+
+    function handleMediaQueryChange(event) {
+      if (event.matches) {
+        homeLink.addEventListener("click", openMenu);
+        slideMenuHolder.addEventListener("touchstart", closeMenu);
+      } else {
+        homeLink.removeEventListener("click", openMenu);
+        slideMenuHolder.removeEventListener("click", closeMenu);
+      }
+    }
+
+    function openMenu() {
+      slideMenuHolder.className = "active";
+    }
+
+    function closeMenu(e) {
+      if (!e.target.closest("#slideMenu")) {
+        slideMenuHolder.className = "";
+      }
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 500px)");
+
+    handleMediaQueryChange(mediaQuery);
+
+    mediaQuery.addEventListener("change", handleMediaQueryChange);
+  } catch (err) {
+    // pass
+  }
+
+  //------------------------------------------------------------
+
+  try {
     const modeCheckBox = document.getElementById("check");
     modeCheckBox.addEventListener("change", function () {
       const message = {
@@ -792,3 +858,147 @@ document.addEventListener("DOMContentLoaded", function () {
     // pass
   }
 });
+
+function contentLoading() {
+  const mainContentContainer = document.getElementById("mainContentContainer");
+  const mainContentLoader = document.getElementById("mainContentLoader");
+  mainContentContainer.className = "";
+  mainContentContainer.classList.add("container");
+  mainContentContainer.classList.add("disabled");
+  mainContentLoader.className = "";
+  mainContentLoader.classList.add("loaderHolder");
+}
+
+window.addEventListener("load", loadTestTimers);
+
+function loadTestTimers(event) {
+  if (
+    !(
+      window.location.pathname === "/timers" ||
+      window.location.pathname === "/Smart_Heating_Website/timers.html"
+    )
+  ) {
+    return;
+  }
+  const data = {
+    winterMode: true,
+    dayTimers: [
+      {
+        id: 1,
+        days: {
+          startDay: 0,
+          endDay: 1,
+        },
+        timers: [
+          {
+            id: 3341131,
+            startTime: {
+              hours: 5,
+              minutes: 45,
+            },
+            endTime: {
+              hours: 8,
+              minutes: 30,
+            },
+          },
+          {
+            id: 3341191,
+            startTime: {
+              hours: 18,
+              minutes: 30,
+            },
+            endTime: {
+              hours: 23,
+              minutes: 0,
+            },
+          },
+        ],
+      },
+      {
+        id: 2,
+        days: {
+          startDay: 5,
+          endDay: 5,
+        },
+        timers: [
+          {
+            id: 3341324,
+            startTime: {
+              hours: 18,
+              minutes: 30,
+            },
+            endTime: {
+              hours: 23,
+              minutes: 0,
+            },
+          },
+        ],
+      },
+      {
+        id: 3,
+        days: {
+          startDay: 6,
+          endDay: 6,
+        },
+        timers: [
+          {
+            id: 3341324,
+            startTime: {
+              hours: 18,
+              minutes: 30,
+            },
+            endTime: {
+              hours: 23,
+              minutes: 0,
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const dayTimers = data["dayTimers"];
+  if (dayTimers.length == 0) return;
+  timersArray.splice(0, timersArray.length);
+  dayTimers.forEach((dayTimer) => {
+    receivedDayTimer = new DayTimer(
+      dayTimer["id"],
+      dayTimer["days"]["startDay"],
+      dayTimer["days"]["endDay"]
+    );
+    dayTimer["timers"].forEach((timer) => {
+      receivedDayTimer.timeRangesArray.push(
+        new HeatingTimer(
+          timer["id"],
+          `${String(timer["startTime"]["hours"]).padStart(2, "0")}:${String(
+            timer["startTime"]["minutes"]
+          ).padStart(2, "0")}`,
+          `${String(timer["endTime"]["hours"]).padStart(2, "0")}:${String(
+            timer["endTime"]["minutes"]
+          ).padStart(2, "0")}`
+        )
+      );
+    });
+    receivedDayTimer.doneConfiguring();
+    timersArray.push(receivedDayTimer);
+  });
+
+  const timerList = document.getElementById("timer-list");
+  timerList.innerHTML = "";
+  timersArray.forEach((timer) => {
+    timer.refreshPage();
+    timerList.appendChild(timer.element);
+  });
+}
+
+window.addEventListener("load", githubLinks);
+
+function githubLinks() {
+  const base =
+    "https://htmlpreview.github.io/?https://raw.githubusercontent.com/I2oman/Smart_Heating/master/Smart_Heating_Website/";
+  document.querySelectorAll("a[href]").forEach((link) => {
+    if (link.getAttribute("href").startsWith("./")) {
+      link.href = base + link.getAttribute("href").substring(2);
+    }
+  });
+}

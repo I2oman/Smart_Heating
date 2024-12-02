@@ -14,12 +14,14 @@
 
 #include "WiFiCredentials.h"
 
-// #include "maintenance.h"
+// #define MAINTENANCE
+
+#ifdef MAINTENANCE
+#include "maintenance.h"
+#endif
 
 #include "Heating.h"
 #include "WeeklyTimers.h"
-
-// #define MAINTENANCE
 
 #define LGRS 36
 #define LED 16
@@ -50,10 +52,11 @@ void setup() {
     return;
   }
 
-  // #ifdef MAINTENANCE
-  //   refreshFiles();
-  //   while (1) {}
-  // #endif
+#ifdef MAINTENANCE
+  delay(5000);
+  refreshFiles();
+  while (1) {}
+#endif
 
   Serial.print("Connecting to ");
   Serial.println(ssid);

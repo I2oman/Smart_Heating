@@ -60,10 +60,10 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
       Serial.print("\tSIZE: ");
       Serial.println(file.size());
       Serial.println();
-      Serial.println("--------------------------------------------------");
-      readFile(SPIFFS, file.path());
-      Serial.println("--------------------------------------------------");
-      Serial.println();
+      // Serial.println("--------------------------------------------------");
+      // readFile(SPIFFS, file.path());
+      // Serial.println("--------------------------------------------------");
+      // Serial.println();
     }
     file = root.openNextFile();
   }
@@ -85,8 +85,10 @@ void deleteAllFiles(fs::FS &fs, const char *dirname) {
   File file = root.openNextFile();
   while (file) {
     if (file.isDirectory()) {
+      // Recursively delete files in subdirectories
       deleteAllFiles(fs, file.path());
-    } else {
+    } else if (strcmp(file.name(), "timers.json") != 0) {
+      // Delete the file only if it is NOT "timers.json"
       deleteFile(SPIFFS, file.path());
     }
     file = root.openNextFile();
@@ -134,4 +136,5 @@ void refreshFiles() {
   listDir(SPIFFS, "/", 0);
   createAllNecessaryFiles();
   listDir(SPIFFS, "/", 0);
+  Serial.println("Done uploading!!!");
 }

@@ -118,7 +118,7 @@ void Heating::togglingHeating() {
     heatingStatus = analogRead(photoresistorPin) > 1000;
     btnBf = heatingStatus;
 
-    myservo.write(25);
+    myservo.write(35);
     clicked = 1;
   }
   if (millis() - toggleTimer >= 500 && millis() - toggleTimer < 1000 && needToToggle) {
